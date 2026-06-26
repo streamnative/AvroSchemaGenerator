@@ -1,8 +1,16 @@
-# AvroSchemaGenerator
-Use to generate Avro Schema with support for **RECURSIVE SCHEMA**
+# StreamNative.AvroSchemaGenerator
+Generate Apache Avro schemas from .NET types, with support for **RECURSIVE SCHEMA**.
+
+This package is a StreamNative-maintained distribution based on [Sharp-Pulsar/AvroSchemaGenerator](https://github.com/Sharp-Pulsar/AvroSchemaGenerator). The original project is licensed under the Apache License, Version 2.0.
 
 ## Getting Started
-Install the NuGet package [AvroSchemaGenerator](https://www.nuget.org/packages/AvroSchemaGenerator/) and copy/paste the code below 
+Install the NuGet package [StreamNative.AvroSchemaGenerator](https://www.nuget.org/packages/StreamNative.AvroSchemaGenerator/):
+
+```bash
+dotnet add package StreamNative.AvroSchemaGenerator
+```
+
+Then copy/paste the code below:
 
 ```csharp
 using AvroSchemaGenerator;
@@ -19,7 +27,7 @@ public class Course
 var avroSchema = typeof(Course).GetSchema();
 ```
 
-By default, `AvroSchemaGenerator` generates schema with optional fields. The code below is an example of how to mark fields as required
+By default, `StreamNative.AvroSchemaGenerator` generates schema with optional fields. The code below is an example of how to mark fields as required.
 
 ```csharp
 using System.ComponentModel;
@@ -125,3 +133,7 @@ public class CustomDefinition
 ## License
 
 This project is licensed under the Apache License Version 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Attribution
+
+This project is based on [Sharp-Pulsar/AvroSchemaGenerator](https://github.com/Sharp-Pulsar/AvroSchemaGenerator), which is licensed under the Apache License, Version 2.0. StreamNative maintains this package as a separate distribution with StreamNative-specific packaging and maintenance changes. See [NOTICE](NOTICE) for details.
