@@ -54,6 +54,10 @@
         "NugetApiUrl": {
           "type": "string"
         },
+        "PackageVersion": {
+          "type": "string",
+          "description": "Package version override. Use this for manual RC builds, for example 1.0.0-rc.1"
+        },
         "Partition": {
           "type": "string",
           "description": "Partition to use on CI"

@@ -1,0 +1,10 @@
+StreamNative.AvroSchemaGenerator
+
+This package is a StreamNative-maintained distribution based on
+Sharp-Pulsar/AvroSchemaGenerator:
+
+  https://github.com/Sharp-Pulsar/AvroSchemaGenerator
+
+The original project is licensed under the Apache License, Version 2.0.
+This distribution preserves that license and includes StreamNative-specific
+packaging, metadata, and maintenance changes.

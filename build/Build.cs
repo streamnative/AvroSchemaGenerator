@@ -44,6 +44,9 @@ partial class Build : NukeBuild
 
     [Parameter] [Secret] string NuGetApiKey;
 
+    [Parameter("Package version override. Use this for manual RC builds, for example 1.0.0-rc.1")]
+    readonly string PackageVersion;
+
     AbsolutePath OutputTests => RootDirectory / "TestResults";
 
     AbsolutePath OutputPerfTests => RootDirectory / "PerfResults";
@@ -60,9 +63,17 @@ partial class Build : NukeBuild
 
     public ReleaseNotes LatestVersion => Changelog.ReleaseNotes.OrderByDescending(s => s.Version).FirstOrDefault() ?? throw new ArgumentException("Bad Changelog File. Version Should Exist");
     public string ReleaseVersion => LatestVersion.Version?.ToString() ?? throw new ArgumentException("Bad Changelog File. Define at least one version");
-    string TagVersion => GitVersion.MajorMinorPatch;
+    string GitHubTagVersion => Environment.GetEnvironmentVariable("GITHUB_REF_TYPE") == "tag"
+        ? Environment.GetEnvironmentVariable("GITHUB_REF_NAME")
+        : null;
+    string NuGetPackageVersion => !PackageVersion.IsNullOrWhiteSpace()
+        ? PackageVersion
+        : !GitHubTagVersion.IsNullOrWhiteSpace()
+            ? GitHubTagVersion
+            : GitVersion.NuGetVersionV2;
+    string AssemblyFileVersion => NuGetPackageVersion.Split('-')[0];
 
-    bool IsTaggedBuild => !string.IsNullOrWhiteSpace(TagVersion);
+    bool IsTaggedBuild => !string.IsNullOrWhiteSpace(GitVersion.SemVer) && GitVersion.CommitsSinceVersionSource == "0";
 
     string VersionSuffix;
     protected override void OnBuildInitialized()
@@ -78,6 +89,7 @@ partial class Build : NukeBuild
 
         Information("BUILD SETUP");
         Information($"Configuration:\t{Configuration}");
+        Information($"Package version:\t{NuGetPackageVersion}");
         Information($"Version suffix:\t{VersionSuffix}");
         Information($"Tagged build:\t{IsTaggedBuild}");
     }
@@ -98,7 +110,7 @@ partial class Build : NukeBuild
         //.OnlyWhenStatic(() => InvokedTargets.Contains(nameof(RunChangelog)))
         .Executes(() =>
         {
-            FinalizeChangelog(ChangelogFile, TagVersion, GitRepository);
+            FinalizeChangelog(ChangelogFile, NuGetPackageVersion, GitRepository);
             Git($"add {ChangelogFile}");
             //Git($"commit -m \"Finalize {Path.GetFileName(ChangelogFile)} for {GitVersion.SemVer}.\"");
             //Git($"tag -f {GitVersion.SemVer}");
@@ -163,17 +175,17 @@ partial class Build : NukeBuild
               .SetProject(project)
               .SetConfiguration(Configuration)
               //.EnableNoBuild()
-              .SetVersion(TagVersion)
+              .SetVersion(NuGetPackageVersion)
               .EnableNoRestore()
-              .SetAssemblyVersion(TagVersion)
-              .SetFileVersion(TagVersion)
-              .SetInformationalVersion(TagVersion)
+              .SetAssemblyVersion(AssemblyFileVersion)
+              .SetFileVersion(AssemblyFileVersion)
+              .SetInformationalVersion(NuGetPackageVersion)
               //.SetVersionSuffix(VersionSuffix)
               .SetPackageReleaseNotes(releaseNotes)
-              .SetDescription("Generate Avro Schema with support for RECURSIVE SCHEMA")
-              .SetPackageTags("Avro", "Schema Generator")
-              .AddAuthors("Ebere Abanonu (@mestical)")
-              .SetPackageProjectUrl("https://github.com/eaba/AvroSchemaGenerator")
+              .SetDescription("StreamNative-maintained Apache-2.0 distribution of Sharp-Pulsar/AvroSchemaGenerator for generating Apache Avro schemas from .NET types.")
+              .SetPackageTags("Apache Avro", "Avro", "Avro Schema", "Schema Generator", "StreamNative")
+              .AddAuthors("StreamNative")
+              .SetPackageProjectUrl("https://github.com/streamnative/AvroSchemaGenerator")
               .SetOutputDirectory(OutputNuget));
 
       });
@@ -188,7 +200,7 @@ partial class Build : NukeBuild
       .Triggers(GitHubRelease)
       .Executes(() =>
       {
-          OutputNuget.GlobFiles("*.nupkg", "*.symbols.nupkg")
+          OutputNuget.GlobFiles("*.nupkg", "*.snupkg")
           .NotNull()
               .ForEach(x =>
               {
@@ -218,7 +230,7 @@ partial class Build : NukeBuild
         .DependsOn(AuthenticatedGitHubClient)
         .Executes(async () =>
         {
-            var version = TagVersion;
+            var version = NuGetPackageVersion;
             var releaseNotes = GetNuGetReleaseNotes(ChangelogFile);
             Release release;
 
@@ -236,7 +248,7 @@ partial class Build : NukeBuild
                     Body = releaseNotes,
                     Name = version,
                     Draft = false,
-                    Prerelease = GitRepository.IsOnReleaseBranch()
+                    Prerelease = version.Contains("-") || GitRepository.IsOnReleaseBranch()
                 };
                 release = await GitHubClient.Repository.Release.Create(gitHubOwner, repoName, newRelease);
             }
@@ -247,7 +259,7 @@ partial class Build : NukeBuild
             }
 
             Information($"GitHub Release {version}");
-            var packages = OutputNuget.GlobFiles("*.nupkg", "*.symbols.nupkg").NotNull();
+            var packages = OutputNuget.GlobFiles("*.nupkg", "*.snupkg").NotNull();
             foreach (var artifact in packages)
             {
                 var releaseAssetUpload = new ReleaseAssetUpload(artifact.Name, "application/zip", File.OpenRead(artifact), null);
