@@ -789,13 +789,14 @@ namespace AvroSchemaGenerator
         private static Dictionary<string, object> DictionaryField(string name, object values, bool required, List<string> aliases)
         {
             var map = new Dictionary<string, object> { { "type", "map" }, { "values", values } };
-            var type = required ? (object)map : new List<object> { map, "null" };
+            var type = required ? (object)map : new List<object> { "null", map };
             var fields = new Dictionary<string, object>
             {
                 { "name", name },
-                { "type", type },
-                { "default", new Dictionary<string, object>() }
+                { "type", type }
             };
+
+            fields["default"] = required ? new Dictionary<string, object>() : null;
 
             if (aliases != null)
             {

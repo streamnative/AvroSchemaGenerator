@@ -134,7 +134,7 @@ namespace AvroSchemaGenerator.Tests
         {
             var actualSchema = typeof(DictionaryFieldTest).GetSchema();
             _output.WriteLine(actualSchema);
-            var expectedSchema = "{\"namespace\":\"AvroSchemaGenerator.Tests\",\"name\":\"DictionaryFieldTest\",\"type\":\"record\",\"fields\":[{\"name\":\"Metadata\",\"type\":[{\"type\":\"map\",\"values\":\"string\"},\"null\"],\"default\":{}}]}";
+            var expectedSchema = "{\"namespace\":\"AvroSchemaGenerator.Tests\",\"name\":\"DictionaryFieldTest\",\"type\":\"record\",\"fields\":[{\"name\":\"Metadata\",\"type\":[\"null\",{\"type\":\"map\",\"values\":\"string\"}],\"default\":null}]}";
             Assert.Equal(expectedSchema, actualSchema);
         }
 
