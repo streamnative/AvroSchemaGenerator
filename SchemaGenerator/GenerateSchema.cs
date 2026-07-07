@@ -268,7 +268,13 @@ namespace AvroSchemaGenerator
                     var aliases = GetAliases(p);
                     Dictionary<string, object> row;
                     if (recursive)
-                        AddReuseType(p, finalSchema, v.Name);
+                    {
+                        row = DictionaryField(p.Name, v.Name, required, aliases);
+
+                        var field = (List<Dictionary<string, object>>)finalSchema["fields"];
+                        field.Add(row);
+                        finalSchema["fields"] = field;
+                    }
                     else if (IsUserDefined(v))
                     {
                         var schema = GetGenericUserDefinedProperties(v, required, existingTypes);
@@ -467,7 +473,7 @@ namespace AvroSchemaGenerator
                     var aliases = GetAliases(p);
                     Dictionary<string, object> row;
                     if (recursive)
-                        return Reuse(p, v.Name);
+                        return DictionaryField(p.Name, v.Name, required, aliases);
                     else if (IsUserDefined(v))
                     {
                         var schema = GetGenericUserDefinedProperties(v, required, existingTypes);
@@ -621,7 +627,7 @@ namespace AvroSchemaGenerator
                     var dt = p.DeclaringType?.Name;
                     var recursive = v.Name.Equals(dt);
                     if (recursive)
-                        return ReuseType(p);
+                        return DictionaryField(p.Name, v.Name, required, aliases);
                     if (IsUserDefined(v))
                     {
                         var schema = new Dictionary<string, object>();
@@ -1317,14 +1323,10 @@ namespace AvroSchemaGenerator
                     var require = p.GetSchemaCustomAttributes().required;
                     var v = p.PropertyType.GetGenericArguments()[1];
                     var dt = p.DeclaringType?.Name;
-                    var isnullable = p.PropertyType.IsGenericType &&
-                                     p.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
-                    var customAttributes = p.GetSchemaCustomAttributes();
 
                     var recursive = v.Name.Equals(dt);
                     if (recursive)
-                        fieldProperties.Add(ReUseSchema(p.Name, v.Name, customAttributes.required,
-                            customAttributes.hasDefault, customAttributes.defaultValue, isnullable, GetAliases(p)));
+                        fieldProperties.Add(DictionaryField(p.Name, v.Name, require, GetAliases(p)));
                     else
                     {
                         var ali = GetAliases(p);
