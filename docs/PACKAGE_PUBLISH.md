@@ -21,7 +21,7 @@ NuGet prerelease versions are supported. Use versions such as `1.0.0-rc.1`, `1.0
 ## Prepare a release
 
 1. Update `CHANGELOG.md`.
-2. Update `GitVersion.yml` if the next package version changes.
+2. Choose the release version. The automated workflow uses a `v`-prefixed Git tag as the source of truth and overrides both `Version` and `PackageVersion`. For example, `v1.0.0` produces package version `1.0.0`, while `v1.0.0-rc.1` produces `1.0.0-rc.1`.
 3. Make sure the package metadata in `SchemaGenerator/AvroSchemaGenerator.csproj` is correct.
 4. Run the release build locally:
 
@@ -81,31 +81,38 @@ dotnet nuget push output/nuget/StreamNative.AvroSchemaGenerator.<version>.snupkg
   --source https://api.nuget.org/v3/index.json
 ```
 
-## CI publish
+## Automated publish with trusted publishing
 
-The GitHub Actions release workflow publishes packages when a tag is pushed.
-The build reads the GitHub tag name from `GITHUB_REF_NAME`, so the tag is the NuGet package version.
+Pushing a semantic-version tag matching `v*` runs `.github/workflows/nuget-publish.yml`. The workflow validates the tag, builds only the package project, creates the `.nupkg` and `.snupkg` with the tag-derived version, and publishes them to NuGet.org. It does not run tests because the repository's other workflows provide test coverage.
 
-1. Confirm that GitHub repository secret `NUGET_API_KEY` exists.
-2. To publish an RC, create and push a prerelease SemVer tag:
+Configure a trusted publishing policy on NuGet.org before pushing the first release tag:
+
+- Policy owner: `StreamNative`
+- Repository owner: `streamnative`
+- Repository: `AvroSchemaGenerator`
+- Workflow file: `nuget-publish.yml`
+- Environment: leave empty
+- NuGet profile used by the workflow: `StreamNative`
+
+The workflow requests a short-lived API key through GitHub OIDC, so no long-lived `NUGET_API_KEY` GitHub secret is required. It retains the generated packages as workflow artifacts and intentionally fails rather than skipping a package version that already exists.
+
+To publish an RC, create and push a prerelease SemVer tag:
 
 ```bash
-git tag 1.0.0-rc.1
-git push origin 1.0.0-rc.1
+git tag v1.0.0-rc.1
+git push origin v1.0.0-rc.1
 ```
 
-3. To publish the first stable release, create and push the stable SemVer tag:
+To publish the first stable release, create and push the stable SemVer tag:
 
 ```bash
-git tag 1.0.0
-git push origin 1.0.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-4. Watch the `Release` GitHub Actions workflow.
-5. Confirm that both `.nupkg` and `.snupkg` files were uploaded.
-6. Wait for NuGet indexing to complete.
+Watch the `Publish NuGet package` GitHub Actions workflow, confirm that both `.nupkg` and `.snupkg` files were uploaded, and wait for NuGet indexing to complete.
 
-The build script uses the full NuGet package version for the package itself, so tags such as `1.0.0-rc.1` produce `StreamNative.AvroSchemaGenerator.1.0.0-rc.1.nupkg`. Assembly and file versions use the stable numeric portion, so `1.0.0-rc.1` produces assembly/file version `1.0.0`.
+The workflow uses the full tag-derived NuGet package version, so tag `v1.0.0-rc.1` produces `StreamNative.AvroSchemaGenerator.1.0.0-rc.1.nupkg`.
 
 ## Post-publish verification
 
