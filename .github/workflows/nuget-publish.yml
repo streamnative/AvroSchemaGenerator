@@ -1,0 +1,120 @@
+name: Publish NuGet package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nuget-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate tag and set package version
+        id: version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "${tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Invalid release tag: ${tag}" >&2
+            echo "Expected a semantic version such as v1.0.0 or v2.0.0-rc.1." >&2
+            exit 1
+          fi
+
+          version="${tag#v}"
+          if [[ "${version}" == *-* ]]; then
+            prerelease="${version#*-}"
+            IFS='.' read -ra identifiers <<< "${prerelease}"
+            for identifier in "${identifiers[@]}"; do
+              if [[ "${identifier}" =~ ^[0-9]+$ && "${identifier}" != "0" && "${identifier}" == 0* ]]; then
+                echo "Invalid numeric prerelease identifier with a leading zero: ${identifier}" >&2
+                exit 1
+              fi
+            done
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SchemaGenerator/AvroSchemaGenerator.csproj
+
+      - name: Build
+        run: dotnet build SchemaGenerator/AvroSchemaGenerator.csproj -c Release --no-restore
+
+      - name: Pack NuGet package
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          dotnet pack SchemaGenerator/AvroSchemaGenerator.csproj
+          -c Release
+          -o output/nuget
+          --no-build
+          -p:Version=${PACKAGE_VERSION}
+          -p:PackageVersion=${PACKAGE_VERSION}
+
+      - name: Validate package artifacts
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          package="StreamNative.AvroSchemaGenerator.${PACKAGE_VERSION}"
+
+          shopt -s nullglob
+          nupkgs=(output/nuget/*.nupkg)
+          snupkgs=(output/nuget/*.snupkg)
+          if [[ ${#nupkgs[@]} -ne 1 || ${#snupkgs[@]} -ne 1 ]]; then
+            echo "Expected exactly one .nupkg and one .snupkg file." >&2
+            ls -la output/nuget >&2
+            exit 1
+          fi
+
+          test -f "output/nuget/${package}.nupkg" || {
+            echo "Missing output/nuget/${package}.nupkg" >&2
+            exit 1
+          }
+          test -f "output/nuget/${package}.snupkg" || {
+            echo "Missing output/nuget/${package}.snupkg" >&2
+            exit 1
+          }
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package-${{ steps.version.outputs.version }}
+          path: output/nuget/*.*nupkg
+          if-no-files-found: error
+
+      - name: Log in to NuGet.org with trusted publishing
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: StreamNative
+
+      - name: Publish package
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          dotnet nuget push
+          output/nuget/StreamNative.AvroSchemaGenerator.${PACKAGE_VERSION}.nupkg
+          --api-key "${NUGET_API_KEY}"
+          --source https://api.nuget.org/v3/index.json

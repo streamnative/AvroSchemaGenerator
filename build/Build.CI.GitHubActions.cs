@@ -35,16 +35,6 @@ using Nuke.Common.Utilities;
     EnableGitHubToken = true)
 ]
 
-[CustomGitHubActions("Release",
-    GitHubActionsImage.WindowsLatest,
-    AutoGenerate = true,
-    FetchDepth = 0,
-    OnPushTags = new[] { "*" },
-    CacheKeyFiles = new[] { "global.json", "SchemaGenerator/**/*.csproj" },
-    InvokedTargets = new[] { nameof(Release) },
-    PublishArtifacts = true,
-    EnableGitHubToken = true,
-    ImportSecrets = new[] { "NUGET_API_KEY" })]
 partial class Build
 {
 }
