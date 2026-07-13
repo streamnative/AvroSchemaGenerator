@@ -92,7 +92,7 @@ Configure a trusted publishing policy on NuGet.org before pushing the first rele
 - Repository: `AvroSchemaGenerator`
 - Workflow file: `nuget-publish.yml`
 - Environment: leave empty
-- NuGet profile used by the workflow: `StreamNative`
+- NuGet profile used by the workflow: `<Policy Creator>`
 
 The workflow requests a short-lived API key through GitHub OIDC, so no long-lived `NUGET_API_KEY` GitHub secret is required. It retains the generated packages as workflow artifacts and intentionally fails rather than skipping a package version that already exists.
 
